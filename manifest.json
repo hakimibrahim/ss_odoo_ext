@@ -1,0 +1,29 @@
+{
+    "name":"ShopSmart Odoo Extension",
+    "description":"ShopSmart Odoo Chrome Extension.",
+    "version":"1.0.0",
+    "manifest_version":3,
+    "action":{
+        "default_popup":"./shopsmart_popup.html",
+        "default_icon":"./ShopsmartLauncher_128.ico"
+    },
+    "icons":{
+        "16":"./ShopsmartLauncher_33.png",
+        "48":"./ShopsmartLauncher_33.png",
+        "128":"./ShopsmartLauncher_128.ico"
+    },
+    "background":
+    {
+        "service_worker": "./background.js"
+    },
+    "content_scripts": [
+		{
+		 "matches": ["https://*.techmixers.com/smartmall/home.php*","http://*.techmixers.com/smartmall/home.php*",
+                    "https://*.techmixers.com/smartmall/pos_integr_test.php*",
+                    "https://*.odoo.com/pos/*"],
+		 "js": ["contentScript.js"]
+		}
+	],
+    "permissions":["activeTab","scripting","tabs"],
+    "host_permissions":["https://*.techmixers.com/*","https://*.odoo.com/pos/*"]
+}

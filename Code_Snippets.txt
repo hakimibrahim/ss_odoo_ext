@@ -1,0 +1,71 @@
+
+document.getElementsByClassName("js_discount")[0].dispatchEvent(new Event('click'));
+
+// Esc Key event to HTML page / document
+document.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'Escape', // The key value
+        code: 'Escape', // The physical key on the keyboard
+        keyCode: 27, // The legacy keyCode value for the ESC key
+        charCode: 0, // charCode is 0 for non-printable keys
+        which: 27, // which property is the same as keyCode for backward compatibility
+        bubbles: true, // The event bubbles up through the DOM
+        cancelable: true // The event is cancelable
+    }));
+	
+
+document.evaluate("//span[text()='Customer Note']", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.parentElement.dispatchEvent(new Event('click'));
+//************************ For opening comments window *******************************//
+// Function to get an element by its inner text using XPath
+function getElementByText(par_tag, tag, text) {
+    var xpath = "//" + tag + "[text()='" + text + "']";
+    var result = par_tag.evaluate(xpath, par_tag, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+    return result.singleNodeValue;
+}
+var element = getElementByText(document,'span', 'Customer Note');
+element.parentElement.dispatchEvent(new Event('click'));
+//*******************************************************//
+
+
+element = getElementByText(document,'h4', 'Add Customer Note');
+var commentsTag = document.querySelectorAll("main");
+
+if(commentsTag != null && commentsTag.length > 0){
+	commentsTag[0].children[0].value = "LNT - Ibrahim Hakim 03213789216";
+	var commentButtons = commentsTag[0].parentElement.querySelectorAll("button");
+	if(commentButtons != 0 && commentButtons.length > 0)
+		commentButtons[1].dispatchEvent(new Event('click'));
+}
+
+document.querySelectorAll("main")[0].children[0].value = "LNT - Ibrahim Hakim 03213789216";
+document.querySelectorAll("main")[0].children[0].value = "LNT - Ibrahim Hakim 03213789216";
+document.querySelectorAll("main")[0].children[0].dispatchEvent(new Event('change'));
+
+
+function typeText(textStr){
+	var key = '';
+	var code = '';
+	var keyCode = 0;
+	for(i=0;i<textStr.length;i++){
+		key = textStr.substring(i,i+1);
+	  	//document.getElementById("demo").innerHTML += "<br>"+key;
+		if(parseFloat(key)!=NaN){
+			code = 'Digit' + key;
+			keyCode = 48 + parseFloat(key);
+			// Create the KeyboardEvent
+			var numberKeyEvent = new KeyboardEvent('keydown', {
+				key: key,
+				code: code,
+				keyCode: keyCode,
+				which: keyCode,
+				bubbles: true,
+				cancelable: true
+			});	
+		}
+		document.dispatchEvent(numberKeyEvent);
+	}
+}
+
+document.querySelectorAll("main")[0].children[0].focus();
+
+
+
