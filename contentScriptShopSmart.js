@@ -4,8 +4,17 @@ var net_sale = 0.0;
 amt_to_redeem = amt_to_redeem.replace(currency,"").trim();
 amt_to_redeem = amt_to_redeem.replace(",","");
 
-if(amt_to_redeem == '' || document.getElementById("edit_mode").value == "2")
+var send_exch_redep_topos = "0";
+if(document.getElementById("send_exch_redep_topos") != undefined)
+    send_exch_redep_topos = document.getElementById("send_exch_redep_topos").value;
+
+if(amt_to_redeem == '' || (document.getElementById("edit_mode").value == "2" && send_exch_redep_topos=='0')){
     amt_to_redeem = 0;
+}else if(document.getElementById("edit_mode").value == "2" && send_exch_redep_topos != '0'){
+    net_sale = document.getElementById('netsale').value;
+    net_sale = net_sale.replace(currency,"").trim();
+    net_sale = net_sale.replace(",","");
+}
 
 // Check if campaign discount calculation is to be done by ShopSmart (SS) or by POS 
 if(document.getElementById("disc_calc_by_ss").value=='0'){

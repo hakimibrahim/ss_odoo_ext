@@ -50,7 +50,7 @@ setInterval(() => {
             }
         }
     }
-},2000);
+},500);
 
 function showLoader() {
   // Avoid adding multiple times
@@ -172,6 +172,10 @@ function fillDataInRetailPOSFields(data){
             console.log('Selected Customer at POS: '+customerCell);
             console.log('Selected Customer at ShopSmart: '+strSmartCard);
             
+            netTotal=0.0;
+            if(fieldValues["NET_SALE"]!=undefined && fieldValues["NET_SALE"].length > 0)
+                netTotal = parseFloat(fieldValues["NET_SALE"]);
+
             //******* For opening comments window and Entring comments *******//
             console.log("2");
             controlBtnsTags = document.getElementsByClassName('control-buttons')[0]; // Control Button panel
@@ -211,10 +215,10 @@ function fillDataInRetailPOSFields(data){
                         
                     }
                     //******* End comments entry *******//
-                    EnterDiscount(lAmount_to_redeem, lDiscount);
+                    EnterDiscount(lAmount_to_redeem, lDiscount, netTotal);
                 }, 1000); // 3 seconds
             }else{
-                EnterDiscount(lAmount_to_redeem, lDiscount);
+                EnterDiscount(lAmount_to_redeem, lDiscount, netTotal);
 
             }
             cleanupOnCompletion();
@@ -224,7 +228,7 @@ function fillDataInRetailPOSFields(data){
     }
 }
 
-function EnterDiscount(lAmount_to_redeem, lDiscount){
+function EnterDiscount(lAmount_to_redeem, lDiscount, netTotal){
     // Getting discount to check if its different then we want to transfer. So as to change the value 
     if((ordr_container = document.getElementsByClassName("order-container")) != null){
         console.log("1");
@@ -237,12 +241,12 @@ function EnterDiscount(lAmount_to_redeem, lDiscount){
         }
     }
     // Getting Net Total Value
-    var netTotal = 0.0;
+    var netTotalRP = 0.0;
     if((ordr_summary = document.getElementsByClassName("order-summary")) != null){
-        var strnetTotal = ordr_summary[0].children[0].innerHTML
-        console.log("netTotal = "+strnetTotal);
-        netTotal = parseFloat(strnetTotal.replace(/Rs\.|\&nbsp|\;|AED|SAR|Rs|\$|\,/gi,"").trim());
-        console.log("netTotal formatted = "+netTotal);
+        var strnetTotalRP = ordr_summary[0].children[0].innerHTML
+        console.log("netTotalRP = "+strnetTotalRP);
+        netTotalRP = parseFloat(strnetTotalRP.replace(/Rs\.|\&nbsp|\;|AED|SAR|Rs|\$|\,/gi,"").trim());
+        console.log("netTotalRP formatted = "+netTotalRP);
     }
 
     // Remove Cell number if already entered and not equal to the one from ShopSmart Portal
@@ -252,7 +256,7 @@ function EnterDiscount(lAmount_to_redeem, lDiscount){
     if(netTotal == "")
         dNetGrossValue = 0.0;
     else
-        dNetGrossValue = parseFloat(netTotal);
+        dNetGrossValue = parseFloat(netTotalRP);
     
     var discountVal = 0.0;
     var discountButton = "";
@@ -270,11 +274,41 @@ function EnterDiscount(lAmount_to_redeem, lDiscount){
         }        
     }
     else{
-        discountVal = Math.round(((dNetGrossValue * lDiscount) + lAmount_to_redeem)* 10)/10;
+
+        if (dNetGrossValue < 0.0 && lAmount_to_redeem>0.0) { // Return redemption amount only if total is negative
+            var net_sale = netTotal;
+            // In case if redemption is to be returned at the last
+            adjustment = dNetGrossValue + net_sale; // Gross amount will be negative for Refund 
+            if (adjustment < 0.0)
+            {
+                if (Math.abs(adjustment) > Math.abs(lAmount_to_redeem))
+                {
+                    console.log("[setRedemption]: Alert!!! 'adjustment' is greated than 'lAmount_to_redeem'. lAmount_to_redeem:" + lAmount_to_redeem + ", adjustment:" + adjustment + ", net_sale: " + net_sale + ", dNetGrossValue:" + dNetGrossValue);
+                    if (Math.abs(Math.abs(adjustment) - Math.abs(lAmount_to_redeem)) < 1) // If difference is less then 1 its OK
+                        adjustment = lAmount_to_redeem*(-1);
+                    else
+                        adjustment = 0.0;
+                }
+                //lAmount_to_redeem = ((-1 * dNetGrossValue) / ((net_sale * (1 + sales_tax)) + lAmount_to_redeem)) * lAmount_to_redeem;
+                adjustment = Math.round(adjustment);
+            }
+            else
+            {
+                adjustment = 0.0;
+            }
+
+            checkpoint = 15;
+            console.log("[setRedemption]: Parent Inv has value hence its an Exchange transaction, net_sale: " + net_sale + ", lAmount_to_redeem:" + lAmount_to_redeem + ", dNetGrossValue:" + dNetGrossValue + ", adjustment:" + adjustment);
+
+            //adjustment = Math.Round(((dNetGrossValue * lDiscount) + lAmount_to_redeem), 0);
+        }else{
+            adjustment = lAmount_to_redeem;    
+        }
+        discountVal = Math.round(adjustment* 10)/10;
         // Convert discount value into percentage 
         //discountVal = (discountVal/netTotal)*100;
         //document.getElementById("AdjustmentAmount").value = discountVal*-1;
-        if(discountVal > 0.0){
+        if(discountVal != 0.0){
             console.log("discountVal Value: "+discountVal);
             // Check if Loyalty is already selected. If so first remove it
             document.getElementsByClassName("pay-order-button")[0].dispatchEvent(new Event('click'));

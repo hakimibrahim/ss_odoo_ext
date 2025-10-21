@@ -135,6 +135,7 @@ if(document.getElementsByClassName("pos-receipt-container") != undefined && docu
         console.log("Total reg = "+objLineItemSummry.regTotal+", Total Dscnt = "+objLineItemSummry.dscntTotal);
         discount = objLineItemSummry.disc_amt;
         
+        /*
         if(discount!="0" && discount!=""){ // If discount / redemption exists then subtract it from reg and discounted totals to make it equal to net total. This is same we get from the breakup win of candella
             discount = discount*m_discnt_xplier;
             if(parseFloat(subtotal) < 0 || parseFloat(netTotal) < 0){ // Means its exchange transaction
@@ -150,6 +151,7 @@ if(document.getElementsByClassName("pos-receipt-container") != undefined && docu
             }
             console.log("After Discount: Total Reg = "+objLineItemSummry.regTotal+", Total Dscnt = "+objLineItemSummry.dscntTotal);
         }
+        */
         strDataToTransfer += receipt_no + "|" + netTotal + "|" + subtotal + "|" + "0|0|0|";
         strDataToTransfer += lineItemData+"|"+dateTime+"|"+customerName;
 
@@ -157,7 +159,7 @@ if(document.getElementsByClassName("pos-receipt-container") != undefined && docu
         arrfieldValues["POSID"] = receipt_no;
         arrfieldValues["NET_TOT"] = ""+netTotal;
         arrfieldValues["GROS_TOT"] = ""+subtotal;
-        arrfieldValues["DISCNT"] = ""+discount;
+        arrfieldValues["DISCNT"] = "0";//+redemption_amt;
         arrfieldValues["REG_PR"] = ""+objLineItemSummry.regTotal;
         arrfieldValues["SPC_PR"] = ""+objLineItemSummry.dscntTotal;
         arrfieldValues["LIN_ITM"] = lineItemData;
@@ -254,10 +256,15 @@ function getListItems(save_recall, objLISumm){
         var thisItemQty = 0.0;
         var thisItemTax = 0.0;
         var thisItemTaxPrcnt = 0.0;
-        var disc_amt = "";
+        var disc_amt = 0.0;
+        var lnItmDscnt = 0.0;
+        // Because discounts on Odoo are being maintained through single line as a sum rasther than at individual line item wise,
+        // hence, we will treat entire invoice as discounted if this line is found. The below flag tracks that
+        var lnitemDiscountFound = false; 
         if(lineitems.length>0){
             var dscnt = 0.0;
             var itemName = "";
+            var strLnItmDscnt = "";
             console.log("Total line items: "+lineitems.length);
             for(var i=0; i<lineitems.length; i++){
                 thisItemPrice = 0.0;
@@ -265,6 +272,8 @@ function getListItems(save_recall, objLISumm){
                 thisItemTax = 0.0;
                 thisItemTaxPrcnt = 0.0;
                 totalLineItems++;
+                strLnItmDscnt = "";
+                lnItmDscnt = 0.0;
 
                 itemName = lineitems[i].getElementsByClassName("product-name")[0].innerHTML.replace(/<[^>]*>/g, '').trim(); // Replace all HTML tags and their attributes and get only value
                 var strItemTotalPrice = lineitems[i].getElementsByClassName("product-price")[0].innerHTML.replace(/<[^>]*>/g, '').replace(/Rs\.|\&nbsp|\;|AED|SAR|Rs|\$|\,/gi,"").trim(); // Replace all HTML tags and their attributes and get only value
@@ -273,29 +282,50 @@ function getListItems(save_recall, objLISumm){
                 if((qty_rate_tag = lineitems[i].getElementsByClassName("price-per-unit"))!=undefined
                         && qty_rate_tag.length>0){
                     var strThisItemQty = qty_rate_tag[0].getElementsByClassName("qty")[0].innerHTML.trim();
-                    if(itemName != "Discount"){
+                    if(itemName.toUpperCase() != "DISCOUNT" && !itemName.toUpperCase().includes("% on specific products".toUpperCase())){
                         if(strThisItemQty !='')
                             thisItemQty = parseFloat(strThisItemQty);
                         lineItemData_string+="^"+thisItemQty;
 
                         var strThisItemPrice = qty_rate_tag[0].innerHTML.replace(/<[^>]*>/g, '').trim();
-                        /*
-                        strThisItemPrice = extractTextBetween("$","\/ Units",strThisItemPrice);
-                        strThisItemPrice = strThisItemPrice.trim().replace(/Rs\.|\&nbsp|\;|AED|SAR|Rs|\$|\,/gi,"").trim();
+                        strThisItemPrice = extractTextBetween(" x ","\/ Units",strThisItemPrice);
+                        strThisItemPrice = strThisItemPrice.trim().replace(/[^0-9.-]/g, '').trim();
+                        //strThisItemPrice = strThisItemPrice.trim().replace(/Rs\.|\&nbsp|\;|AED|SAR|Rs|\$|\,/gi,"").trim();
                         thisItemPrice = parseFloat(strThisItemPrice);
-                        */
                         // Calculating item price from total line item price. Looks like more better approach then getting price from above commented code
                         if(thisItemQty>0)
                             thisItemPrice = parseFloat(strItemTotalPrice)/thisItemQty;
                         
-                        regTotal += parseFloat(strItemTotalPrice);
+                        if(qty_rate_tag[0].parentElement.innerHTML.toUpperCase().includes("DISCOUNT")){
+                            dscntTotal += parseFloat(strItemTotalPrice);
+                            strLnItmDscnt = extractTextBetween(" With "," discount",qty_rate_tag[0].parentElement.innerHTML);
+                            strLnItmDscnt = strLnItmDscnt.trim().replace(/[^0-9.%-]/g, '').trim();
+                            if(strLnItmDscnt.includes("%")) {
+                                strLnItmDscnt = strLnItmDscnt.replace(/[^0-9.-]/g, '').trim();
+                                if(thisItemPrice > 0)
+                                    lnItmDscnt = ((parseFloat(strItemTotalPrice)*100)/(100-parseFloat(strLnItmDscnt)))-parseFloat(strItemTotalPrice);
+                            }else{
+                                lnItmDscnt = parseFloat(strLnItmDscnt);
+                            }
+                        }else
+                            regTotal += parseFloat(strItemTotalPrice);
+                        
                         lineItemData_string+="^"+thisItemPrice;
                     }else{
-                        var strThisItemPrice = qty_rate_tag.innerHTML.replace(/<[^>]*>/g, '').trim();
-                        strThisItemPrice = extractTextBetween("$","\/ Units",strThisItemPrice);
-                        strThisItemPrice = strThisItemPrice.trim().replace(/Rs\.|\&nbsp|\;|AED|SAR|Rs|\$|\,/gi,"").trim();
+                        // replace any strike through text/amount
+                        var strThisItemPrice = qty_rate_tag[0].innerHTML.replace(/<s>.*?<\/s>/g,"");
+
+                        // replace all html tags
+                        strThisItemPrice = strThisItemPrice.replace(/<[^>]*>/g, '').trim();
+                        
+                        strThisItemPrice = extractTextBetween(" x ","\/ Units",strThisItemPrice);
+                        strThisItemPrice = strThisItemPrice.trim().replace(/[^0-9.-]/g, '').trim();
+                        //strThisItemPrice = strThisItemPrice.trim().replace(/Rs\.|\&nbsp|\;|AED|SAR|Rs|\$|\,/gi,"").trim();
                         thisItemPrice = parseFloat(strThisItemPrice);
                         disc_amt += thisItemPrice;
+                        if(itemName.toUpperCase().includes("% on specific products".toUpperCase()))
+                            lnitemDiscountFound = true;
+
                         continue;
                     }
                 }else{
@@ -350,10 +380,28 @@ function getListItems(save_recall, objLISumm){
                     }
                 }
                 */
-                lineItemData_string+="^0"; // discount
+                lineItemData_string+="^"+lnItmDscnt; // discount
                 lineItemData_string+=";";
                 console.log(lineItemData_string);
             }
+
+            // Code to subtract overall discount amount from discounted and regular total based on their ratio
+            var totalLineItemAmt = dscntTotal + regTotal;
+             // If discount exists then subtract it from reg and discounted totals to make it equal to net total. This is same we get from the breakup win of candella
+            if(totalLineItemAmt != 0 && disc_amt != 0){
+                console.log("Calculating reg and normal totals after discount ("+disc_amt+")");
+                var dscntPrcnt = dscntTotal / totalLineItemAmt;
+                var regPrcnt = regTotal / totalLineItemAmt;
+                dscntTotal = dscntTotal + (dscntPrcnt * disc_amt); // because disc_amt will always be of opposite sign, hence, we used add operator
+                regTotal = regTotal + (regPrcnt * disc_amt); // because disc_amt will always be of opposite sign, hence, we used add operator
+
+                // In the end if its entire discounted invoice add regular item total in discounted
+                if(lnitemDiscountFound){
+                    dscntTotal += regTotal;
+                    regTotal = 0.0;
+                }
+            }
+            
             objLISumm.dscntTotal = dscntTotal;
             objLISumm.regTotal = regTotal;
             //objLISumm.taxTotal = taxTotal;
