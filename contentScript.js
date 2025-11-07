@@ -9,7 +9,7 @@ function pastedataScript(data){
 //chrome.runtime.sendMessage("03213789216", (response) => { console.log(response) } );
 
 
-console.log("Adding Listner to get messages..");
+console.log("Adding Listner to get messages... ver 1.0.1");
 chrome.runtime.onMessage.addListener((message,sender,sendResponse) => 
                                         {
                                             console.log("message from background ... "+message);
@@ -33,7 +33,7 @@ chrome.runtime.onMessage.addListener((message,sender,sendResponse) =>
 
 // Hide discount fields on top control buttons as well as add an event listner to hide the discount button if More... button is clicked.
 // Try twice
-var loyaltyTenderName = "LOYALTY";
+var loyaltyTenderName = "LOYALTY REWARD";
 setInterval(() => {
     if(document.getElementsByClassName("pos") != undefined && document.getElementsByClassName("pos")[0] != undefined
         && document.getElementsByClassName("control-buttons") != undefined && document.getElementsByClassName("control-buttons").length>0){
