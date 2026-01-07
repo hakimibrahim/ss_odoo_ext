@@ -1,7 +1,7 @@
 {
     "name":"ShopSmart Odoo Extension",
     "description":"ShopSmart Odoo Chrome Extension.",
-    "version":"1.0.1",
+    "version":"1.0.4",
     "manifest_version":3,
     "action":{
         "default_popup":"./shopsmart_popup.html",

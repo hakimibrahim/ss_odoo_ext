@@ -9,7 +9,7 @@ function pastedataScript(data){
 //chrome.runtime.sendMessage("03213789216", (response) => { console.log(response) } );
 
 
-console.log("Adding Listner to get messages... ver 1.0.1");
+console.log("Adding Listner to get messages... ver 1.0.4");
 chrome.runtime.onMessage.addListener((message,sender,sendResponse) => 
                                         {
                                             console.log("message from background ... "+message);
