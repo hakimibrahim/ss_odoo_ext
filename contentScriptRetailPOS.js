@@ -56,6 +56,8 @@ if(document.getElementsByClassName("pos-receipt-container") != undefined && docu
             readReceipt_GV(saleInvoiceDiv)
         else if(hostName.toUpperCase().includes("TAXDOTCOM-COSMETISH"))
             readReceipt_DarhiMooch(saleInvoiceDiv,'');
+        else if(hostName.toUpperCase().includes("MASARRAT-MISBAH"))
+            readReceipt_Masarrat(saleInvoiceDiv,'');
         else
             readReceipt_DarhiMooch(saleInvoiceDiv,'DEFAULT');
 
@@ -351,6 +353,86 @@ function readReceipt_GV(saleInvoiceDiv){
     
 }
 
+function readReceipt_Masarrat(saleInvoiceDiv, invType){
+    var loyaltyTenderName = "LOYALTY REWARDS";
+
+    rcptNoTag = saleInvoiceDiv[0];
+
+    if(rcptNoTag!=undefined && rcptNoTag!=null){
+        var fldValTag = undefined;
+        for(i=0; i<rcptNoTag.children.length; i++){
+            /*
+            if(rcptNoTag.children[i].innerHTML.toUpperCase().includes("ORDER ")){
+                receipt_no = rcptNoTag.children[i].innerHTML.replace("Order","").trim();
+            */
+            if((arr_receipt_no = rcptNoTag.children[i].innerHTML.toUpperCase().match(/\b\d{5}-\d{3}-\d{4}\b/g))!=undefined){
+                if(arr_receipt_no.length > 0){
+                    receipt_no = arr_receipt_no[0];
+                    console.log("receipt_no="+receipt_no);
+                }
+                arr_receipt_no = null;
+                //receipt_no = rcptNoTag.children[i].innerHTML.replace("Order","").trim();
+                var datetimeCapTag = getTagFromListHavingText(rcptNoTag.children[i].getElementsByTagName("div"),"DATE: ");
+                // Below will match date with '-' or '/', Month as num or Abbriv., optional time  
+                // Same can be tested and used for Darhi Mooch if it works fine
+                if(datetimeCapTag!=undefined
+                    && (arrdateTime = datetimeCapTag.innerHTML.toUpperCase().match(/\b\d{2}([\/-])(?:\d{2}|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\1\d{4}(?:\s\d{2}:\d{2}(?::\d{2})?)?\b/g))!=undefined
+                ){
+                    dateTime = arrdateTime[0];
+                    console.log("dateTime="+dateTime);
+                    strDataToTransfer = "FromSS1|";
+                }
+            } else if(rcptNoTag.children[i].innerHTML.toUpperCase().includes("TOTAL AMOUNT")){
+                            subtotal = rcptNoTag.children[i].textContent.toUpperCase().replace("TOTAL AMOUNT","").trim();
+                            subtotal = subtotal.replace(/(?!-?(?:\d+(?:\.\d+)?|\.\d+))./g,'');
+                            // Not subtracting tax b/c we are going with loyalty redemption with Payment Modes. Issue is if cashier give entire amount as redemption, hence, subtracting tax will give net as negative in shopsmart
+                            netTotal += parseFloat(subtotal);
+
+            } else if(rcptNoTag.children[i].innerHTML.toUpperCase().includes("SALES TAX")){
+                salesTaxAmt = rcptNoTag.children[i].textContent.toUpperCase().replace("SALES TAX","").trim();
+                //salesTaxAmt = rcptNoTag.children[i].textContent.toUpperCase().replace(/SALES\s+TAX\s*\d+(?:\.\d+)?%/gi,"").trim();
+                salesTaxAmt = salesTaxAmt.replace(/(?!-?(?:\d+(?:\.\d+)?|\.\d+))./g,'');
+                netTotal = parseFloat(subtotal) - parseFloat(salesTaxAmt);
+
+            } else if(rcptNoTag.children[i].innerHTML.toUpperCase().includes(loyaltyTenderName)){
+                redemption_amt = rcptNoTag.children[i].textContent.toUpperCase().replace(loyaltyTenderName,"").trim();
+                redemption_amt = parseFloat(redemption_amt.replace(/(?!-?(?:\d+(?:\.\d+)?|\.\d+))./g,''));
+                console.log("redemption_amt="+redemption_amt);
+
+            } else if(rcptNoTag.children[i].innerHTML.toUpperCase().includes("GENERAL NOTE")){
+                if((comments_tag = getTagFromListHavingText(rcptNoTag.children[i].children[0].children,"LNT - ")) != null 
+                    && comments_tag != undefined){
+                    customerName = comments_tag.innerHTML.replace(/<[^>]*>/g, '').trim();
+                }else if((comments_tag = getTagFromListHavingText(rcptNoTag.children[i].children[0].children,"LRT - ")) != null 
+                    && comments_tag != undefined){
+                    customerName = comments_tag.innerHTML.replace(/<[^>]*>/g, '').trim();
+                }
+                console.log("customerName="+customerName);
+            }
+
+            if((objLineItemRows = rcptNoTag.children[i].getElementsByTagName("tbody")) != undefined){
+                if(objLineItemRows.length > 0 && objLineItemRows[0].children.length >0 ){
+                    lineItemData = getListItems_masarrat(objLineItemRows[0].children, objLineItemSummry);
+                    console.log("Total reg = "+objLineItemSummry.regTotal+", Total Dscnt = "+objLineItemSummry.dscntTotal);
+                    discount = objLineItemSummry.disc_amt;
+                }
+            }
+        }
+    }
+    /*
+    if((lineItemDataTag = document.getElementsByClassName("order-container")[0]) != null){
+        if((comments_tag = getTagFromListHavingText(lineItemDataTag.getElementsByClassName("customer-note"),"LNT - ")) != null 
+            && comments_tag != undefined){
+            customerName = comments_tag.innerHTML.replace(/<[^>]*>/g, '').trim();
+        }else if((comments_tag = getTagFromListHavingText(lineItemDataTag.getElementsByClassName("customer-note"),"LRT - ")) != null 
+            && comments_tag != undefined){
+            customerName = comments_tag.innerHTML.replace(/<[^>]*>/g, '').trim();
+        }
+    }
+    console.log("customerName: "+customerName);
+    */
+}
+
 function getFieldValue(fldRowTad){
     var fldVal = "";
     var fldColTag = fldRowTad.querySelectorAll("td");
@@ -555,8 +637,147 @@ function getListItems_GV(objLIRows, objLISumm){
     return lineItemData_string;
 }
 
+function getListItems_masarrat(objLIRows, objLISumm){
+    arrlineitemColIdx = {ItemCode: -1, ItemName: 0, Price: 2, Quantity: 1, DiscountPrcnt: 3, DiscountAmt: -1, TaxPrcnt: 4, TaxAmt: 5, NetAmtWithDscnt: 6, NetAmtWODscnt: -1};
+    var lineItemData_string = "";
+    var dscntTotal = 0.0;
+    var regTotal = 0.0;
+    var taxTotal = 0.0;
+    var totalLineItems = 0;
+
+    console.log("Getting line items ....");
+    var totalFirstRowColumns = 0;
+    var thisItemPrice = 0.0;
+    var thisItemQty = 0.0;
+    var thisItemTax = 0.0;
+    var thisItemTaxPrcnt = 0.0;
+    var disc_amt = 0.0;
+    var lnItmDscnt = 0.0;
+    // Because discounts on Odoo are being maintained through single line as a sum rasther than at individual line item wise,
+    // hence, we will treat entire invoice as discounted if this line is found. The below flag tracks that
+    var lnitemDiscountFound = false; 
+    if(objLIRows.length > 0){
+        var lnitemDiscountFound = false; 
+        var dscnt = 0.0;
+        var itemName = "";
+        var itemCode = "";
+        var strLnItmDscnt = "";
+        console.log("Total line items: "+objLIRows.length);
+        // Traverse each row
+        for(var i=0; i<objLIRows.length; i++){
+            row = objLIRows[i];
+            thisItemPrice = 0.0;
+            thisItemTotalPrice = 0.0;
+            thisItemQty = 0.0;
+            thisItemTax = 0.0;
+            thisItemTaxPrcnt = 0.0;
+            strLnItmDscnt = "";
+            lnItmDscnt = 0.0;
+            val = "";
+
+            if(arrlineitemColIdx["ItemName"] >= 0 && row.children[arrlineitemColIdx["ItemName"]] != undefined){
+                itemName = row.children[arrlineitemColIdx["ItemName"]].innerHTML.trim();
+            }
+            if(itemName.toUpperCase() != 'DISCOUNT' && !itemName.toUpperCase().includes("% on specific products".toUpperCase())){
+                totalLineItems++;
+                if(arrlineitemColIdx["ItemCode"] >= 0 && row.children[arrlineitemColIdx["ItemCode"]] != undefined){
+                    itemCode = row.children[arrlineitemColIdx["ItemCode"]].innerHTML.trim();
+                }
+                if(arrlineitemColIdx["Quantity"] >= 0 && row.children[arrlineitemColIdx["Quantity"]] != undefined){
+                    val = row.children[arrlineitemColIdx["Quantity"]].innerHTML.trim().replace(/(?!-?(?:\d+(?:\.\d+)?|\.\d+))./g,'');
+                    if(val != '')
+                        thisItemQty = parseInt(val);
+                }
+                if(arrlineitemColIdx["TaxAmt"] >= 0 && row.children[arrlineitemColIdx["TaxAmt"]] != undefined){
+                    val = row.children[arrlineitemColIdx["TaxAmt"]].innerHTML.trim().replace(/(?!-?(?:\d+(?:\.\d+)?|\.\d+))./g,'');
+                    if(val != '')
+                        thisItemTax = parseFloat(val);
+                }
+                if(arrlineitemColIdx["Price"] >= 0 && row.children[arrlineitemColIdx["Price"]] != undefined){
+                    val = row.children[arrlineitemColIdx["Price"]].innerHTML.trim().replace(/(?!-?(?:\d+(?:\.\d+)?|\.\d+))./g,'');
+                    if(val != '')
+                        thisItemPrice = parseFloat(val);
+                }
+                if(arrlineitemColIdx["DiscountPrcnt"] >= 0 && row.children[arrlineitemColIdx["DiscountPrcnt"]] != undefined){
+                    val = row.children[arrlineitemColIdx["DiscountPrcnt"]].innerHTML.trim().replace(/(?!-?(?:\d+(?:\.\d+)?|\.\d+))./g,'');
+                    if(val != '')
+                        thisItemPrice = parseFloat(val);
+                }
+                if(arrlineitemColIdx["NetAmtWithDscnt"] >= 0 && row.children[arrlineitemColIdx["NetAmtWithDscnt"]] != undefined){
+                    val = row.children[arrlineitemColIdx["NetAmtWithDscnt"]].innerHTML.trim().replace(/(?!-?(?:\d+(?:\.\d+)?|\.\d+))./g,'');
+                    if(val != ''){
+                        thisItemTotalPrice = parseFloat(val);
+                        if(thisItemTax>0)
+                            thisItemTotalPrice -= thisItemTax;
+
+                    }
+                    if(thisItemTotalPrice > 0 && thisItemPrice == 0 && thisItemQty > 0)
+                        thisItemPrice = thisItemTotalPrice/thisItemQty;
+                }
+                regTotal += thisItemTotalPrice;
+                lineItemData_string+=""; // For code once its added in invoice
+                lineItemData_string+="^"+thisItemQty;
+                lineItemData_string+="^"+thisItemPrice;
+                lineItemData_string+="^"+itemName;
+                lineItemData_string+="^"+thisItemTax;
+                lineItemData_string+="^0"; // tax amount and tax %
+                lineItemData_string+="^"+lnItmDscnt; // discount
+                lineItemData_string+=";";
+                console.log(lineItemData_string);
+        
+            }else{
+                if(arrlineitemColIdx["Price"] >= 0 && row.children[arrlineitemColIdx["Price"]] != undefined){
+                    val = row.children[arrlineitemColIdx["Price"]].innerHTML.trim().replace(/(?!-?(?:\d+(?:\.\d+)?|\.\d+))./g,'');
+                    if(val != '')
+                        thisItemPrice = parseFloat(val);
+                }
+                if(arrlineitemColIdx["NetAmtWithDscnt"] >= 0 && row.children[arrlineitemColIdx["NetAmtWithDscnt"]] != undefined){
+                    val = row.children[arrlineitemColIdx["NetAmtWithDscnt"]].innerHTML.trim().replace(/(?!-?(?:\d+(?:\.\d+)?|\.\d+))./g,'');
+                    if(val != '')
+                        thisItemTotalPrice = parseFloat(val);
+                    if(thisItemTotalPrice > 0 && thisItemPrice == 0 && thisItemQty > 0)
+                        thisItemPrice = thisItemTotalPrice/thisItemQty;
+                }
+                disc_amt += thisItemPrice;
+                if(itemName.toUpperCase().includes("% on specific products".toUpperCase()))
+                    lnitemDiscountFound = true;
+
+            }
+        }
+
+        // Code to subtract overall discount amount from discounted and regular total based on their ratio
+        var totalLineItemAmt = dscntTotal + regTotal;
+            // If discount exists then subtract it from reg and discounted totals to make it equal to net total. This is same we get from the breakup win of candella
+        if(totalLineItemAmt != 0 && disc_amt != 0){
+            console.log("Calculating reg and normal totals after discount ("+disc_amt+")");
+            var dscntPrcnt = dscntTotal / totalLineItemAmt;
+            var regPrcnt = regTotal / totalLineItemAmt;
+            dscntTotal = dscntTotal + (dscntPrcnt * disc_amt); // because disc_amt will always be of opposite sign, hence, we used add operator
+            regTotal = regTotal + (regPrcnt * disc_amt); // because disc_amt will always be of opposite sign, hence, we used add operator
+
+            // In the end if its entire discounted invoice add regular item total in discounted
+            if(lnitemDiscountFound){
+                dscntTotal += regTotal;
+                regTotal = 0.0;
+            }
+        }
+        
+        objLISumm.dscntTotal = dscntTotal;
+        objLISumm.regTotal = regTotal;
+        //objLISumm.taxTotal = taxTotal;
+        objLISumm.totalItems = totalLineItems;
+        objLISumm.disc_amt = disc_amt
+        if (lineItemData_string.length > 0){
+            lineItemData_string = lineItemData_string.substring(0, lineItemData_string.length - 1);
+        }
+    }else
+        console.log("No line items found.");
+
+    return lineItemData_string;
+}
+
 function getListItems(objLIRows, objLISumm){
-    arrlineitemColIdx = {ItemCode: -1, ItemName: 0, Price: 2, Quantity: 1, DiscountPrcnt: -1, DiscountAmt: -1, TaxPrcnt: -1, TaxAmt: -1, NetAmtWithDscnt: 3, NetAmtWODscnt: -1};
+    arrlineitemColIdx = {ItemCode: -1, ItemName: 0, Price: 2, Quantity: 1, DiscountPrcnt: -1, DiscountAmt: -1, TaxPrcnt: 3, TaxAmt: 4, NetAmtWithDscnt: 5, NetAmtWODscnt: -1};
     var lineItemData_string = "";
     var dscntTotal = 0.0;
     var regTotal = 0.0;
